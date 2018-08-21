@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    </head>
+    <script src="https://d3js.org/d3.v4.min.js">
+    </script>
+    <style>
+    </style>
+    <body>
+        <div id="chart">
+        </div>
+        <script>
+            var chart = d3.select('#chart');//
+        var width = 960, height = 600;
+        var centerCoords = [width/2, height/2];  //获取中心坐标
+        var RADIAN_OFFSET = Math.PI/2;//弧度
+        var padding = 60;
+        var radius = d3.min([width - padding, height - padding])/2; //半径
+        
+        var data = {
+            layers: [
+            ['0', '1', '2'],
+            ['3', '4', '5'],
+            ['6', '7', '8']
+            ],
+            links: [
+            {source: 0, target: 4, value: 10},
+            {source: 1, target: 4, value: 10},
+            {source: 2, target: 4, value: 5},
+            {source: 1, target: 5, value: 5},
+            {source: 3, target: 6, value: 5},
+            {source: 3, target: 7, value: 5},
+            {source: 4, target: 7, value: 10},
+            {source: 4, target: 8, value: 5},
+            {source: 5, target: 8, value: 5}
+            ]
+        };
+
+    var domain = [0,3]//分成几个圈
+
+    var measureScale = d3.scaleLinear()
+    .domain(domain)
+    .range([20, radius]) 
+
+    const min_radius = radius / 4
+
+    function myLayout(data){
+        var angle
+
+        function mkAngle(num){
+            angle = d3.scaleLinear()   // 一圈上显示的数据
+            .domain([0, num])
+            .range([0 - RADIAN_OFFSET, 2 * Math.PI - RADIAN_OFFSET]);
+        }
+
+        function X(i, r, offset) {//横坐标
+            if (offset === undefined) offset = 0;
+            return Math.cos(angle(i)) * ((r || radius) + offset);
+        }
+        function Y(i, r, offset) {//纵坐标
+            if (offset === undefined) offset = 0;
+            return Math.sin(angle(i)) * ( (r || radius) + offset);
+        }
+
+        var nodes = []
+
+        data.layers.forEach(function(layer, _i){
+            mkAngle(layer.length)
+
+            let r = (_i+1)*min_radius
+            layer.forEach(function(mailbox, i){
+                var node = {
+                    name: mailbox,
+                    x: X(i, r),
+                    y: Y(i, r)
+                }
+                nodes.push(node)
+            })
+        })
+
+        data.nodes = nodes
+        console.log(JSON.stringify(nodes))
+        data.links.forEach(function(link){
+           debugger
+            link.source = data.nodes[link.source]   //相当于一个引用  主要是想要坐标
+            link.target = data.nodes[link.target]
+            // 后期需要设置参数使用
+            // links.attr("x1",function(d){ return d.source.x; })
+            //     .attr("y1",function(d){ return d.source.y; })
+            //     .attr("x2",function(d){ return d.target.x; })
+            //     .attr("y2",function(d){ return d.target.y; });
+
+            // [{"name":"0","x":4.133182947122317e-15,"y":-67.5},{"name":"1","x":58.45671475544961,"y":33.749999999999986},{"name":"2","x":-58.456714755449596,"y":33.75000000000002},{"name":"3","x":8.266365894244634e-15,"y":-135},{"name":"4","x":116.91342951089922,"y":67.49999999999997},{"name":"5","x":-116.91342951089919,"y":67.50000000000004},{"name":"6","x":1.2399548841366951e-14,"y":-202.5},{"name":"7","x":175.37014426634883,"y":101.24999999999997},{"name":"8","x":-175.3701442663488,"y":101.25000000000007}]
+        })
+    }
+
+
+    function drawGraph(data){
+        var svg = chart.selectAll("svg")
+        .data([{}])
+        .enter()
+        .append("svg")
+        .attr("height", height)
+        .attr("width", width)
+        .style("background-color","#A3CDF2");
+
+        var g = svg.append('g').attr('transform',"translate(" + centerCoords[0] + "," + centerCoords[1] + ")");
+        
+        g.selectAll('circle.ring') //画出每一个圈
+        .data([min_radius, min_radius*2, min_radius*3])
+        .enter()
+        .append('circle')
+        .classed('ring',true)
+                .attr('cx',0) //圆心的坐标
+                .attr('cy',0)
+                .attr('r', function(d,i) {//设置半径
+                    return d
+                })
+                .style("stroke-dasharray",2)
+                .style("stroke","red")
+                .style("stroke-width","1.5px")
+                .style("fill","none")
+
+
+        g.selectAll('circle.axis_circle')     //数据节点上的圆
+        .data(data.nodes)
+        .enter()
+        .append('circle')
+        .classed('axis_circle',true)
+        .attr('cx',function(d,i) {
+           return d.x
+       })
+        .attr('cy',function(d,i) { 
+            return d.y
+        })
+        .attr('r',4)
+        .style("fill","yellow");
+
+        g.selectAll('text.label')  //外圈显示的标签
+        .data(data.nodes)
+        .enter()
+        .append('text')
+        .classed('label',true)
+        .attr('x', function(d,i) { return d.x})
+        .attr('y', function(d,i) { return d.y})
+        .text(function(d) {
+            return d.name
+        })
+        // var points = g.selectAll('circle.point')//中心点
+        //         .data(data.nodes)
+        //         .enter()
+        // points.append('circle')  
+        //         .classed('point',true)
+        //         .attr('r', 10)
+        //         .attr('cx',0)
+        //         .attr('cy',0)
+        // 绘制连接数据
+        
+        var links = g.selectAll("line")
+        .data(data.links)
+        .enter()
+        .append("line")
+        .style("stroke","#445689")
+        .style("stroke-width",1)
+        links.attr("x1",function(d){ return d.source.x; })
+        .attr("y1",function(d){ return d.source.y; })
+        .attr("x2",function(d){ return d.target.x; })
+        .attr("y2",function(d){ return d.target.y; });
+        }
+        myLayout(data)
+    //debugger
+    drawGraph(data)
+        </script>
+    </body>
+</html>
